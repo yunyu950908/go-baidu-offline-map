@@ -10,5 +10,9 @@
   "license": "ISC",
   "dependencies": {
     "proj4leaflet": "^1.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yunyu950908/go-baidu-offline-map.git"
   }
 }
