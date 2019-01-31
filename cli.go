@@ -21,8 +21,8 @@ const (
 	BASE_URL string = "http://online1.map.bdimg.com/tile/?qt=vtile&styles=pl&scaler=2&udt=20190122&z="
 )
 
-// 当前时间
-var nowTime string = time.Now().Format("20060102150405")
+// 默认为当前时间的时间戳
+var targetDir string = time.Now().Format("20060102150405")
 
 // 阻塞队列
 var waitgroup sync.WaitGroup
@@ -30,7 +30,7 @@ var waitgroup sync.WaitGroup
 func main() {
 	fmt.Println("****************************")
 
-	var mins, maxs, confirm, fls string
+	var mins, maxs, confirm, fls, targetPath string
 
 	fmt.Printf("输入最小、大层级（半角逗号隔开）：")
 	fmt.Scanln(&fls)
@@ -41,10 +41,15 @@ func main() {
 	fmt.Printf("输入最大经、纬度（半角逗号隔开）：")
 	fmt.Scanln(&maxs)
 
+	fmt.Printf("输入存储瓦片的文件夹名称：")
+	fmt.Scanln(&targetDir)
+
 	if fls == "" || mins == "" || maxs == "" {
 		fmt.Println("输入值为空！")
 		return
 	}
+
+	targetPath = "./" + targetDir + "/tiles"
 
 	// 切割字符串
 	mina := strings.Split(mins, ",")
@@ -76,15 +81,12 @@ func main() {
 	// 开始执行时间
 	startTime := time.Now()
 
-	GetAllFloor(minLng, maxLng, minLat, maxLat, startZ, endZ)
+	GetAllFloor(minLng, maxLng, minLat, maxLat, startZ, endZ, targetPath)
 
 	// 计算执行耗时
 	allTime := time.Since(startTime)
 
 	fmt.Println(allTime)
-
-	// 复制预览文件
-	// _, _ = CopyFile("./demo.html", "./"+nowTime+"/index.html")
 
 	// 生成地图索引文件
 	MkIndex(lngCen, latCen, fla[0], fla[1])
@@ -94,14 +96,28 @@ func main() {
 	fmt.Println("打开 index.html 即可预览离线地图，程序退出！")
 }
 
+// 判断所给路径文件/文件夹是否存在
+func isExist(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
+}
+
 // 获得所有层级瓦片图
-func GetAllFloor(minLng float64, maxLng float64, minLat float64, maxLat float64, startZ int, endZ int) {
-	// 创建存储瓦片图总文件夹
-	os.MkdirAll("./"+nowTime+"/tiles", os.ModePerm)
+func GetAllFloor(minLng float64, maxLng float64, minLat float64, maxLat float64, startZ int, endZ int, targetPath string) {
+	// 所有层级文件夹所在的文件夹
+	if !isExist(targetPath) {
+		os.MkdirAll(targetPath, os.ModePerm)
+	}
 
 	for z := startZ; z <= endZ; z++ {
 		waitgroup.Add(1)
-		go GetOneFloor(minLng, maxLng, minLat, maxLat, z, nowTime)
+		go GetOneFloor(minLng, maxLng, minLat, maxLat, z, targetPath)
 		fmt.Println(strconv.Itoa(z))
 	}
 
@@ -109,29 +125,38 @@ func GetAllFloor(minLng float64, maxLng float64, minLat float64, maxLat float64,
 }
 
 // 获得一个层级瓦片图
-func GetOneFloor(minLng float64, maxLng float64, minLat float64, maxLat float64, z int, nowTime string) {
+func GetOneFloor(minLng float64, maxLng float64, minLat float64, maxLat float64, z int, targetPath string) {
 	url := BASE_URL + strconv.Itoa(z)
 
 	minX, maxX, minY, maxY := GetBound(minLng, maxLng, minLat, maxLat, z)
 
-	var path string
+	var urlPath, picPath string
 	var dir string
 
-	fdir := "./" + nowTime + "/tiles/" + strconv.Itoa(z) + "/"
+	fdir := targetPath + "/" + strconv.Itoa(z) + "/"
 
-	os.Mkdir(fdir, os.ModePerm)
+	// 层级文件夹
+	if !isExist(fdir) {
+		os.Mkdir(fdir, os.ModePerm)
+	}
 
 	for i := minX; i <= maxX; i++ {
 		func(i int, minY int, maxY int) {
 			dir = fdir + strconv.Itoa(i)
-			os.Mkdir(dir, os.ModePerm)
+			// 瓦片文件夹
+			if !isExist(dir) {
+				os.Mkdir(dir, os.ModePerm)
+			}
 			for j := minY; j <= maxY; j++ {
-				path = url + "&x=" + strconv.Itoa(i) + "&y=" + strconv.Itoa(j)
-
-				resp, _ := http.Get(path)
-				body, _ := ioutil.ReadAll(resp.Body)
-				out, _ := os.Create(dir + "/" + strconv.Itoa(j) + ".png")
-				io.Copy(out, bytes.NewReader(body))
+				// pic 文件不存在 ==> 继续
+				picPath = dir + "/" + strconv.Itoa(j) + ".png"
+				if !isExist(picPath) {
+					urlPath = url + "&x=" + strconv.Itoa(i) + "&y=" + strconv.Itoa(j)
+					resp, _ := http.Get(urlPath)
+					body, _ := ioutil.ReadAll(resp.Body)
+					out, _ := os.Create(picPath)
+					io.Copy(out, bytes.NewReader(body))
+				}
 			}
 		}(i, minY, maxY)
 	}
@@ -150,30 +175,9 @@ func GetBound(minLng float64, maxLng float64, minLat float64, maxLat float64, z 
 	return
 }
 
-// 复制文件
-func CopyFile(src, dst string) (w int64, err error) {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	defer dstFile.Close()
-
-	return io.Copy(dstFile, srcFile)
-}
-
 // 生成地图索引文件
 func MkIndex(lngCen, latCen float64, startZ string, endZ string) {
-	fname := "./" + nowTime + "/index.html"
+	fname := "./" + targetDir + "/index.html"
 	f, err := os.OpenFile(fname, os.O_CREATE|os.O_RDWR|os.O_APPEND, os.ModeAppend|os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
