@@ -179,13 +179,12 @@ func MkIndex(lngCen, latCen float64, startZ string, endZ string) {
 		fmt.Println(err)
 	}
 
-	content := P4L + `
+	content := `
 <!DOCTYPE html>
 <html>
     <head>
         <meta charset="utf-8">
         <title>地图预览</title>
-    
         <link rel="stylesheet" href="` + P4L + `lib/leaflet/leaflet.css" />
         <style>
             #map {height: 800px;}
