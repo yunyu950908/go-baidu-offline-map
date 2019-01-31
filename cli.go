@@ -179,62 +179,63 @@ func MkIndex(lngCen, latCen float64, startZ string, endZ string) {
 		fmt.Println(err)
 	}
 
-	content := `<!DOCTYPE html>
-				<html>
-					<head>
-						<meta charset="utf-8">
-						<title>地图预览</title>
-
-						<link rel="stylesheet" href="` + P4L + `lib/leaflet/leaflet.css" />
-						<style>
-							#map {height: 800px;}
-						</style>
-					</head>
-					<body>
-						<div id="map"></div>
-
-						<script src="` + P4L + `lib/leaflet/leaflet.js"></script>
-						<script src="` + P4L + `lib/proj4-compressed.js"></script>
-						<script src="` + P4L + `src/proj4leaflet.js"></script>
-						<script>
-						var center = {
-								lng: "` + strconv.FormatFloat(lngCen, 'f', -1, 64) + `",
-								lat: "` + strconv.FormatFloat(latCen, 'f', -1, 64) + `"
-							}
-
-						// 百度坐标转换
-						var crs = new L.Proj.CRS('EPSG:3395',
-								   '+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs',
-								   {
-									   resolutions: function () {
-										   level = 19
-										   var res = [];
-										   res[0] = Math.pow(2, 18);
-										   for (var i = 1; i < level; i++) {
-											   res[i] = Math.pow(2, (18 - i))
-										   }
-										   return res;
-									   }(),
-									   origin: [0, 0],
-									   bounds: L.bounds([20037508.342789244, 0], [0, 20037508.342789244])
-								   }),
-									map = L.map('map', {
-									   crs: crs
-								   });
-
-						   L.tileLayer('./tiles/{z}/{x}/{y}.png', {
-							   maxZoom: ` + endZ + `,
-							   minZoom: ` + startZ + `,
-							   subdomains: [0,1,2],
-							   tms: true
-						   }).addTo(map);
-
-						   new L.marker([center.lat, center.lng]).addTo(map);
-
-						   map.setView([center.lat, center.lng], ` + startZ + `);
-						</script>
-					</body>
-				</html>`
+	content := P4L + `
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>地图预览</title>
+    
+        <link rel="stylesheet" href="` + P4L + `lib/leaflet/leaflet.css" />
+        <style>
+            #map {height: 800px;}
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        
+        <script src="` + P4L + `lib/leaflet/leaflet.js"></script>
+        <script src="` + P4L + `lib/proj4-compressed.js"></script>
+        <script src="` + P4L + `src/proj4leaflet.js"></script>
+        <script>
+            var center = {
+                lng: "` + strconv.FormatFloat(lngCen, 'f', -1, 64) + `",
+                lat: "` + strconv.FormatFloat(latCen, 'f', -1, 64) + `"
+            }
+            
+            // 百度坐标转换
+            var crs = new L.Proj.CRS(
+                'EPSG:3395',
+                '+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs',
+                {
+                    resolutions: function () {
+                        level = 19
+                        var res = [];
+                        res[0] = Math.pow(2, 18);
+                        for (var i = 1; i < level; i++) {
+                            res[i] = Math.pow(2, (18 - i))
+                        }
+                        return res;
+                    }(),
+                    origin: [0, 0],
+                    bounds: L.bounds([20037508.342789244, 0], [0, 20037508.342789244])
+                }
+            );
+            var map = L.map('map', { crs: crs });
+            
+            L.tileLayer('./tiles/{z}/{x}/{y}.png', {
+                maxZoom: ` + endZ + `,
+                minZoom: ` + startZ + `,
+                subdomains: [0,1,2],
+                tms: true
+            }).addTo(map);
+            
+            new L.marker([center.lat, center.lng]).addTo(map);
+            
+            map.setView([center.lat, center.lng], ` + startZ + `);
+        </script>
+    </body>
+</html>`
 
 	f.WriteString(content)
 	f.Close()
